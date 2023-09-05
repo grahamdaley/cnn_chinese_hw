@@ -1,20 +1,21 @@
 import math
 import random
-import numpy as np
 from random import randint
+
+import numpy as np
+
+from cnn_chinese_hw.stroke_tools.get_vertex import get_vertex
 from cnn_chinese_hw.stroke_tools.points_normalized import points_normalized
 from cnn_chinese_hw.stroke_tools.points_to_plot import draw_in_place, draw_faded_brensenham_lines
 
-from cnn_chinese_hw.stroke_tools.get_vertex import get_vertex
-
 
 class HWStrokesAugmenter:
-    def __init__(self, strokes, find_vertices=False, vertice_error_scale=1.0):
+    def __init__(self, strokes, find_vertices=False, vertice_error_scale=1.0, width=1000, height=1000):
         """
 
         """
         strokes = points_normalized(
-            strokes, width=1000, height=1000
+            strokes, width=height, height=height
         )
         if find_vertices:
             strokes = [get_vertex(stroke, vertice_error_scale) for stroke in strokes]

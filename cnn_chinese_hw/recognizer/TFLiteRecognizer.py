@@ -1,8 +1,8 @@
 # Recognize using the model quantized for tflite
 
-import json
 import _thread
-import numpy as np
+import json
+
 try:
     import tflite_runtime.interpreter
     Interpreter = tflite_runtime.interpreter.Interpreter
@@ -20,10 +20,16 @@ from cnn_chinese_hw.stroke_tools.HWDataAugmenter import HWStrokesAugmenter
 
 
 class TFLiteRecognizer:
-    def __init__(self):
+    def __init__(self, width=1000, height=1000):
         """
+        Initialize instance of TFLiteRecognizer
 
+        :param width: width of canvas, in pixels
+        :param height: height of canvas, in pixels
         """
+        self.canvas_width = width
+        self.canvas_height = height
+
         # Load TFLite model and allocate tensors.
         interpreter = self.interpreter = Interpreter(
             model_path=f'{get_package_dir()}/data/hw_quant_model.tflite'
@@ -52,7 +58,7 @@ class TFLiteRecognizer:
         """
 
         # Get the rastered character (normal)
-        aug = HWStrokesAugmenter(LStrokes, find_vertices=True)
+        aug = HWStrokesAugmenter(LStrokes, find_vertices=True, width=self.canvas_width, height=self.canvas_height)
         rastered = aug.raster_strokes(
             image_size=IMAGE_SIZE,
             do_augment=False
