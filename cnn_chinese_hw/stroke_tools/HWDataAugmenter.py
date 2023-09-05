@@ -15,7 +15,7 @@ class HWStrokesAugmenter:
 
         """
         strokes = points_normalized(
-            strokes, width=height, height=height
+            strokes, width=width, height=height
         )
         if find_vertices:
             strokes = [get_vertex(stroke, vertice_error_scale) for stroke in strokes]
