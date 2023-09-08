@@ -1,11 +1,11 @@
-from cnn_chinese_hw.stroke_tools.HWDataAugmenter import HWStrokesAugmenter
+import os.path
 
-from tensorflow import keras, config
 import numpy as np
-import matplotlib.pyplot as plt
-from cnn_chinese_hw.recognizer.TomoeDataset import TomoeDataset
-from cnn_chinese_hw.get_package_dir import get_package_dir
+from tensorflow import keras
 
+from cnn_chinese_hw.get_package_dir import get_package_dir
+from cnn_chinese_hw.recognizer.TomoeDataset import TomoeDataset
+from cnn_chinese_hw.stroke_tools.HWDataAugmenter import HWStrokesAugmenter
 
 """
 The parameters I tried here that made the 
@@ -17,16 +17,15 @@ Changing from 50 augmented
 Increase the random augmenter constants: -> 1.74 
 """
 
-
 # use less memory than float32
 # OPEN ISSUE: Would it be better to support float16 here?
-#keras.backend.set_floatx('mixed_float16')
+# keras.backend.set_floatx('mixed_float16')
 keras.mixed_precision.set_global_policy('mixed_float16')
 
-#gpus = config.list_physical_devices('GPU')
-#for gpu in gpus:
-    #config.experimental.set_virtual_device_configuration(gpu, [config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
-#    config.experimental.set_memory_growth(gpu, True)
+# gpus = config.list_physical_devices('GPU')
+# for gpu in gpus:
+#     config.experimental.set_virtual_device_configuration(gpu, [config.experimental.VirtualDeviceConfiguration(memory_limit=8192)])
+#     config.experimental.set_memory_growth(gpu, True)
 
 
 NUM_EPOCHS = 1000
@@ -37,7 +36,7 @@ NUM_EPOCHS = 1000
 # 512 is most I can fit into memory for 2 channel
 BATCH_SIZE = 128
 
-IMAGE_SIZE = 20
+IMAGE_SIZE = 28
 CHANNELS = 3
 # How many times to augment each set of strokes
 # (i.e. rotate/scale/distort... etc)
@@ -56,6 +55,8 @@ SMALL_SAMPLE_SIZE = 500
 
 
 class HandwritingModel:
+    model = None
+
     def __init__(self, load_images=True):
         # Cache the Kanji data if possible,
         # as can take quite a long time itself
@@ -76,45 +77,29 @@ class HandwritingModel:
 
         xx = 0
         for x, label in enumerate(self.dataset.train_labels):
-            #print("LABEL:", label, self.dataset.class_names[label], LCHECK_ORD)
+            # print("LABEL:", label, self.dataset.class_names[label], LCHECK_ORD)
             if self.dataset.class_names[label] == LCHECK_ORD:
                 print("FOUND!!!")
-                img = self.dataset.train_images[x]
-                self.matshow(img[:, :, 0], img[:, :, 1], img[:, :, 2])
-
                 xx += 1
                 if xx > 10:
                     break
 
-    def matshow(self, ch1, ch2=None, ch3=None):
-        three_chans = np.zeros(shape=(IMAGE_SIZE, IMAGE_SIZE, 3),
-                               dtype='uint8')
-        three_chans[:, :, 0] = ch1
-        if ch2 is not None:
-            three_chans[:, :, 1] = ch2
-        if ch3 is not None:
-            three_chans[:, :, 2] = ch3
-        plt.matshow(three_chans,
-                    interpolation='nearest',
-                    vmin=0.0,
-                    vmax=1.0)
-        plt.show()
-
     def run(self):
-        if CACHE_MODEL:
+        if CACHE_MODEL and os.path.isfile(self.model_path):
             self.model = keras.models.load_model(self.model_path)
         else:
             self.model = self.cnn_model()
+            self.model.save(self.model_path, overwrite=True)
 
     def cnn_model(self):
         x_train, y_train = self.dataset.train_images, \
-                           self.dataset.train_labels
+            self.dataset.train_labels
         x_train = x_train.astype('float32').reshape(
             -1, IMAGE_SIZE, IMAGE_SIZE, CHANNELS
         ) / 255.0
 
         x_val, y_val = self.dataset.test_images, \
-                       self.dataset.test_labels
+            self.dataset.test_labels
         x_val = x_val.astype('float32').reshape(
             -1, IMAGE_SIZE, IMAGE_SIZE, CHANNELS
         ) / 255.0
@@ -178,8 +163,8 @@ class HandwritingModel:
             keras.layers.BatchNormalization(),
             conv2d(128),
             keras.layers.BatchNormalization(),
-            #conv2d(128),
-            #keras.layers.BatchNormalization(),
+            # conv2d(128),
+            # keras.layers.BatchNormalization(),
             keras.layers.MaxPool2D(pool_size=1,
                                    strides=2,
                                    padding='same'),
@@ -188,8 +173,8 @@ class HandwritingModel:
             keras.layers.BatchNormalization(),
             conv2d(256),
             keras.layers.BatchNormalization(),
-            #conv2d(256),
-            #keras.layers.BatchNormalization(),
+            # conv2d(256),
+            # keras.layers.BatchNormalization(),
             keras.layers.MaxPool2D(pool_size=1,
                                    strides=2,
                                    padding='same'),
@@ -201,12 +186,12 @@ class HandwritingModel:
             dense(512),
             keras.layers.BatchNormalization(),
             dense(512),
-            #keras.layers.BatchNormalization(),
-            #dense(1024),
+            # keras.layers.BatchNormalization(),
+            # dense(1024),
 
             # Perhaps this is not the right place for this?
             # https://stats.stackexchange.com/questions/299292/dropout-makes-performance-worse
-            #keras.layers.Dropout(0.5),
+            # keras.layers.Dropout(0.5),
 
             keras.layers.Dense(units=len(self.dataset.class_names),
                                activation=keras.activations.softmax,
@@ -218,17 +203,17 @@ class HandwritingModel:
         # Not sure if Adam or SGD is better here.
         # Suspect SGD might be slower to converge,
         # but give better generalization.
-        opt = keras.optimizers.Adam(learning_rate=1e-5,
-                                    #clipnorm=1.0
-                                    )
+        opt = keras.optimizers.legacy.Adam(learning_rate=1e-5,
+                                           # clipnorm=1.0
+                                           )
         # learning_rate of 0.01 might be best when testing?
-        #opt = keras.optimizers.SGD(learning_rate=0.01, nesterov=True)
+        # opt = keras.optimizers.SGD(learning_rate=0.01, nesterov=True)
         model.compile(
             optimizer=opt,
-            #loss=keras.losses.categorical_crossentropy,
+            # loss=keras.losses.categorical_crossentropy,
             loss=keras.losses.sparse_categorical_crossentropy,
             metrics=[
-                #'mse',
+                # 'mse',
                 'accuracy',
                 'mae',
             ]
@@ -248,7 +233,7 @@ class HandwritingModel:
             monitor='val_accuracy',
             verbose=1,
             patience=50,
-            #min_delta=1
+            # min_delta=1
         )
         mc = keras.callbacks.ModelCheckpoint(
             self.model_path,
@@ -271,14 +256,8 @@ class HandwritingModel:
         rastered = rastered.reshape(
             -1, IMAGE_SIZE, IMAGE_SIZE, CHANNELS
         ).astype('float32') / 255.0
-        #rastered = rastered.reshape(-1, IMAGE_SIZE, IMAGE_SIZE)
+        # rastered = rastered.reshape(-1, IMAGE_SIZE, IMAGE_SIZE)
         print("RASTERED:", rastered)
-
-        self.matshow(
-            rastered[0][:, :, 0]*255,
-            rastered[0][:, :, 1]*255,
-            rastered[0][:, :, 2]*255
-        )
 
         # Output the best prediction
         predictions = self.model.predict(rastered)
@@ -295,7 +274,6 @@ class HandwritingModel:
         LPredict.sort(key=lambda x: -x[0])
 
         for xx, (prediction, idx) in enumerate(LPredict):
-            # print(prediction)
             print("PREDICTION:",
                   prediction, idx,
                   self.dataset.class_names[idx],
@@ -322,7 +300,6 @@ class HandwritingModel:
             LPredict.sort(key=lambda x: -x[0])
 
             for xx, (prediction, idx) in enumerate(LPredict):
-                # print(prediction)
                 print("AUG PREDICTION:",
                       prediction, idx,
                       self.dataset.class_names[idx],
@@ -346,9 +323,6 @@ if __name__ == '__main__':
                              find_vertices=True)
     LCHECK_RASTERED = aug.raster_strokes(image_size=IMAGE_SIZE,
                                          do_augment=False).astype('float32') / 255.0
-    plt.matshow(LCHECK_RASTERED)
-    plt.show()
-
     LCHECK_RASTERED_AUG = [
         aug.raster_strokes(image_size=IMAGE_SIZE).astype('float32') / 255.0
         for ___ in range(20)
@@ -356,10 +330,10 @@ if __name__ == '__main__':
 
     hw_model = HandwritingModel()
     hw_model.run()
-    #hw_model.do_prediction(LCHECK_RASTERED, LCHECK_ORD,
-    #                   LAugRastered=LCHECK_RASTERED_AUG)
+    hw_model.do_prediction(LCHECK_RASTERED, LCHECK_ORD,
+                           LAugRastered=LCHECK_RASTERED_AUG)
 
-    #for x, img in enumerate(demo.dataset.train_images):
+    # for x, img in enumerate(demo.dataset.train_images):
     #    should_be_ord = hw_model.dataset.class_names[hw_model.dataset.train_labels[x]]
     #    print('ENUMERATE x:', x, hw_model.dataset.train_labels[x],
     #          chr(should_be_ord))
