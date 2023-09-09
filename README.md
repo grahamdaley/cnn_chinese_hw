@@ -94,6 +94,11 @@ testing says it performs reasonably well, even if not as well as with
 a wacom tablet or pen. I may later combine my previous handwriting engine that 
 on compared x,y point positions and angles, augmenting the results. 
 
+# Misc 
+
+The main reason for this fork was to improve recognition of the '一' character ('one' - ord 19968 / 0x4E00)
+by providing more varied samples.
+
 # License
 
 Because it uses [Tomoe](https://sourceforge.net/projects/tomoe/) data, 
