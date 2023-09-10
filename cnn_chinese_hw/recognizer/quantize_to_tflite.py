@@ -1,15 +1,19 @@
 import json
+
 import numpy as np
 import tensorflow as tf
-from cnn_chinese_hw.get_package_dir import get_package_dir
-from cnn_chinese_hw.recognizer.TomoeDataset import TomoeDataset
 
+from cnn_chinese_hw.get_package_dir import get_package_dir
 
 if __name__ == '__main__':
     # Quantize to file (reduce amount of memory/disk space needed)
     model = tf.keras.models.load_model(f'{get_package_dir()}/data/hw_model.hdf5')
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    converter.target_spec.supported_ops = [
+        tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
+        tf.lite.OpsSet.SELECT_TF_OPS  # enable TensorFlow ops.
+    ]
     converter.target_spec.supported_types = [tf.float16]
     tflite_quant_model = converter.convert()
 
